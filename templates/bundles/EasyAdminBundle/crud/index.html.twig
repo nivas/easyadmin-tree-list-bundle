@@ -1,8 +1,22 @@
 {# @var ea \EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext #}
 {# @var entities \EasyCorp\Bundle\EasyAdminBundle\Collection\EntityDtoCollection #}
 {# @var paginator \EasyCorp\Bundle\EasyAdminBundle\Orm\EntityPaginator #}
+
 {% extends ea.templatePath('layout') %}
 {% trans_default_domain ea.i18n.translationDomain %}
+
+{# moj blok sa inicijalizacijom js-a #}
+{% block body_javascript %}
+    {{ parent() }}
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $("#main > table").treetable({ expandable: true, nodeIdAttr: 'id', parentIdAttr: 'parentId', indent: {{ _entity_config.list.indent|default(19) }} });
+            // $("body.list .table-responsive table.table").treetable({ expandable: true, nodeIdAttr: 'id', parentIdAttr: 'parentId', indent: {{ _entity_config.list.indent|default(19) }} });
+
+        });
+
+    </script>
+{% endblock %}
 
 {% block body_id entities|length > 0 ? 'ea-index-' ~ entities|first.name : '' %}
 {% block body_class 'ea-index' ~ (entities|length > 0 ? ' ea-index-' ~ entities|first.name : '') %}
@@ -18,6 +32,7 @@
 
 {% set has_batch_actions = batch_actions|length > 0 %}
 {% block page_actions %}
+
     {% if filters|length > 0 %}
         <div class="datagrid-filters">
             {% block filters %}
@@ -105,11 +120,115 @@
 
         <tbody>
         {% block table_body %}
+
+
+                {% if tree is defined and tree %}
+                    {# {% set levelShift = (paginator.currentPageResults|first) ? (paginator.currentPageResults|first).lvl : null %} #}
+                    {% set levelShift = (entities|first) ? (entities|first).fields.getByProperty('lvl').value : null %}
+                    {% set tree_parents = [] %}
+                    {% set previous_item = null %}
+                    {% set root_item = null %}
+                    {% set parent_id = null %}
+<hr>
+levelShift: {{ levelShift }}
+tree_parents: {{ dump(tree_parents) }}
+previous_item: {{ previous_item }}
+root_item: {{ root_item }}
+parent_id: {{ parent_id }}
+<hr>
+                {% endif %}
+
+
             {% for entity in entities %}
+
+
+{# 
+
+<hr>
+{{  dump(((entities|last).fields.getByProperty('lvl').value)) }}
+{{  dump((entity.fields.getByProperty('lvl').value)) }}
+
+{{ (entities|first).fields.getByProperty('lvl') }}  <-- ovo je dohvatilo
+{{ (entities|first).fields.get('01GWEVQB8J0AVMKARH62NRE5E8') }} <-- ovdje ovaj get ocekuje fieldUniqueId i on je uvijek drugaciji random
+<hr>
+
+{{ entity.getFqcn }}
+{{ entity.getName }}
+{{ entity.getInstance }}
+{{ entity.getPrimaryKeyName }}
+{{ entity.getPrimaryKeyValue }}
+{{ dump(entity.getAllPropertyNames) }}
+
+#}
+
+
+
                 {% if not entity.isAccessible %}
                     {% set some_results_are_hidden = true %}
                 {% else %}
-                    <tr data-id="{{ entity.primaryKeyValueAsString }}">
+
+
+                    {# TREE MANAGMENT #}
+                    {% if tree is defined and tree %}
+                    {# {% if _entity_config.tree is defined and _entity_config.tree %} #}
+
+
+{% set current_root_id = entity.fields.getByProperty('root').value.id %}
+{% set current_lft = entity.fields.getByProperty('lft').value %}
+{% set current_lvl = entity.fields.getByProperty('lvl').value %}
+
+current_root_id: {{ current_root_id }}<br/>
+current_lft: {{ current_lft }}<br/>
+
+                        {% if root_item != current_root_id %}
+                            {% set previous_item = null %}
+                            {% set parent_id = null %}
+                            {% set root_item = current_root_id %}
+                            {% set tree_parents = [] %}
+                        {% endif %}
+                        {% if previous_item %}
+PREVIOUS
+{% set previous_id = previous_item.fields.getByProperty('id').value %}
+{% set previous_root_id = previous_item.fields.getByProperty('root').value.id %}
+{% set previous_rgt = previous_item.fields.getByProperty('rgt').value %}
+{% set previous_lft = previous_item.fields.getByProperty('lft').value %}
+
+previous_rgt: {{ previous_rgt }}<br/>
+previous_lft: {{ previous_lft }}<br/>
+
+                            {% if previous_rgt > current_lft %}{# we go up #}
+                                {% set parent_id = previous_id %}
+                                {% set tree_parents = tree_parents|merge([{
+                                'id':previous_id,
+                                'root':previous_root_id,
+                                'lft':previous_lft,
+                                'rgt':previous_rgt}]) %}
+                            {% else %}
+                                {% set tree_parents = tree_parents|slice(0, current_lvl - levelShift) %}
+                                {% set parent = tree_parents|last %}
+                                {% if parent %}
+                                    {% set parent_id = parent.id %}
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                    {% endif %}
+
+
+
+                    {# <tr data-id="{{ entity.primaryKeyValueAsString }}"> #}
+
+                    <tr data-id="{{ entity.primaryKeyValueAsString }}"
+                        {% if root_item is defined and root_item %}data-root-id="{{root_item}}" {%endif%}
+                            {% if parent_id is defined and parent_id %}data-parent-id="{{parent_id}}" {% endif %}
+                    >
+
+
+{% set previous_item = entity %}
+prev: {{ previous_item }}
+
+
+
+
                         {% if has_batch_actions %}
                             <td class="batch-actions-selector">
                                 <div class="form-check">
@@ -175,6 +294,8 @@
                         {% endif %}
                     {% endfor %}
                 {% endblock table_body_empty %}
+
+
             {% endfor %}
 
             {% if some_results_are_hidden %}
