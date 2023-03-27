@@ -1,16 +1,33 @@
 # easyadmin-tree-list-bundle
 
-EasyAdmin 3.x / Symfony 5.x compatible bundle which overrides default EasyAdmin list templates, adding nested tree view on list for entities that use [Gedmo Tree extension](https://github.com/doctrine-extensions/DoctrineExtensions).
+EasyAdmin 3.x / Symfony 5.x compatible bundle which overrides default EasyAdmin index (list) templates and adds nested tree view on list for entities that use [Gedmo Tree extension](https://github.com/doctrine-extensions/DoctrineExtensions).
 
-In order to achieve nested tree view, your entity must implement following:
-- nested tree on entity
-- root_id property 
-- parent_id property
-- lft (left) property
-- rgt (right) property
-- lvl (level) property
+![EasyAdmin 3 tree list bundle demo](demo.gif)
 
-example: https://github.com/doctrine-extensions/DoctrineExtensions/blob/main/doc/tree.md
+
+In order to achieve nested tree view, your entity must implement nested Gedmo tree on entity and following properties:
+
+- `root_id` property 
+- `parent_id` property
+- `lft` (left) property
+- `rgt` (right) property
+- `lvl` (level) property
+
+Example of such entity: https://github.com/doctrine-extensions/DoctrineExtensions/blob/main/doc/tree.md
+
+## Notable mentions and some history
+
+On many Symfony 4 projects, we used `2lenet/EasyAdminPlusBundle`'s tree view feature. As we migrated projects to Symfony v5 / EasyAdmin v3 and Symfony v6 / EasyAdmin v4 - we lacked this simple tree view feature and decided to make tree view work again. 
+
+Hopefully bundle will work on PHP 8, Symfony 6 & EasyAdmin v4 as well (not yet tested).
+
+History:
+
+- [WandiParis/EasyAdminPlusBundle](https://github.com/WandiParis/EasyAdminPlusBundle) original bundle from which everything started
+- [2lenet/EasyAdminPlusBundle](https://github.com/2lenet/EasyAdminPlusBundle) which forked `WandiParis/EasyAdminPlusBundle` and added tree view and made it work for EasyAdmin v1
+- [uknight/EasyAdminPlusBundle](https://github.com/uknight/EasyAdminPlusBundle) which forked `2lenet/EasyAdminPlusBundle` and made it work for EasyAdmin v2
+
+ To achieve tree functionality in templates, really old [jQuery treetable Plugin 3.2.0](http://ludo.cubicphuse.nl/jquery-treetable) was used from Ludo van den Boom, just like in `2lenet/EasyAdminPlusBundle` bundle. Will check out how to replace it with something recent.
 
 ## Installation
 
@@ -71,11 +88,10 @@ class TermCrudController extends AbstractCrudController
     public function configureResponseParameters(KeyValueStore $responseParameters): KeyValueStore
     {
         $responseParameters->set('tree', true);
-        // $responseParameters->setIfNotSet('bar.foo', '...');
-
         return $responseParameters;
     }
-    
+
+    // not needed, it looks better this way
     public function configureActions(Actions $actions): Actions
     {
         return $actions
@@ -91,73 +107,10 @@ class TermCrudController extends AbstractCrudController
         return $qb;
     }
 
-    public static function getEntityFqcn(): string
-    {
-        return Term::class;
-    }
+  ...
 
-    public function configureCrud(Crud $crud): Crud
-    {
-        return $crud
-            ->showEntityActionsInlined() // bolje funka na tree-u
-            ->setEntityLabelInSingular('Term')
-            ->setEntityLabelInPlural('Term')
-            ->setSearchFields(['id', 'name', 'slug', 'lft', 'lvl', 'rgt', 'position'])
-            ->setPaginatorPageSize(5000);
-    }
-
-    public function configureFields(string $pageName): iterable
-    {
-        $name = TextField::new('name');
-        $parent = AssociationField::new('parent');
-        $parentCategories = AssociationField::new('parentCategories');
-        $id = IntegerField::new('id', 'ID');
-        $slug = TextField::new('slug');
-        $lft = IntegerField::new('lft');
-        $lvl = IntegerField::new('lvl');
-        $rgt = IntegerField::new('rgt');
-        $position = IntegerField::new('position');
-        $root = AssociationField::new('root');
-        $children = AssociationField::new('children');
-        $childCategories = AssociationField::new('childCategories');
-        $createdBy = AssociationField::new('createdBy');
-        $updatedBy = AssociationField::new('updatedBy');
-
-        if (Crud::PAGE_INDEX === $pageName) {
-            return [$id, $name, $root, $parent, $lft, $rgt, $lvl, $updatedBy, $createdBy];
-        } elseif (Crud::PAGE_DETAIL === $pageName) {
-            return [$id, $name, $slug, $lft, $lvl, $rgt, $position, $root, $parent, $children, $parentCategories, $childCategories, $createdBy, $updatedBy];
-        } elseif (Crud::PAGE_NEW === $pageName) {
-            return [$name, $parent, $parentCategories];
-        } elseif (Crud::PAGE_EDIT === $pageName) {
-            return [$name, $parent, $parentCategories];
-        }
-    }
 }
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -187,12 +140,21 @@ For local development if bundle is located in `~/dev/my_easyadmin_tree_bundle/ni
 
 Then run `composer install`.
 
-## Drama sa dohvacanjem entity-a u twig templateima u easyadmin bundleu
+## Easyadmin v2 to v3 migration 
 
-In EasyAdminu v2 you could access value of entity property by typing `entity.id`. not anymore. this was replaced by EasyAdmin DTD.
+In EasyAdmin v2 you could access value of entity property by typing eg. `entity.id`. Not anymore. this was replaced by EasyAdmin's EntityDTO.
 
-Isto tako prije se moglo lagano doci do propertya koji bi mu se u yamlu stavio na entity tipa:
+eg:
 
+```
+entity.fields.getByProperty('id').value
+```
+
+or eg: `entity.root.id` becomes: `entity.fields.getByProperty('root').value.id`
+
+Also, befure it was easy to access custom property defined in yaml (eg. `tree: true` in example below):
+
+```
 easy_admin:
   entities:
     Organization:
@@ -202,9 +164,12 @@ easy_admin:
       form:
         fields:
           - name
+  ...
 ```
 
-Now this is done by overriding configureResponseParameters of your admin CrudController:
+In templates you would just use `entity.tree` to access it.
+
+Now this is done by overriding `configureResponseParameters` of your admin crud class which extends `AbstractCrudController`:
 
 ```
 use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
@@ -220,57 +185,10 @@ class OrganizationCrudController extends AbstractCrudController
     }
 ```
 
-In template canb e checked:
+And usage in Twig template:
 
 ```
-{% if tree  is defined %}
+{% if tree is defined and tree %}
 tree je true - {{ tree }}
 {% endif %}
-```
-
-
-
-
-
-# Tests
-
-```
-<hr>
-
-{# 
-
-<hr>
-{{  dump(((entities|last).fields.getByProperty('lvl').value)) }}
-{{  dump((entity.fields.getByProperty('lvl').value)) }}
-
-{{ (entities|first).fields.getByProperty('lvl') }}  <-- ovo je dohvatilo
-{{ (entities|first).fields.get('01GWEVQB8J0AVMKARH62NRE5E8') }} <-- ovdje ovaj get ocekuje fieldUniqueId i on je uvijek drugaciji random
-<hr>
-
-{{ entity.getFqcn }}
-{{ entity.getName }}
-{{ entity.getInstance }}
-{{ entity.getPrimaryKeyName }}
-{{ entity.getPrimaryKeyValue }}
-{{ dump(entity.getAllPropertyNames) }}
-
-#}
-
-{# ne radi ?! #}
-{% if entity.getFqcn == 'App\Entity\Organization' %}
-{% endif %}
-
-{{ entity.fields.get('ID') }}  <-- zasto ovo ne radi :()
-{{ entity.fields.get('Id') }}  <-- zasto ovo ne radi :()
-{{ entity.fields.get('id') }}  <-- zasto ovo ne radi :()
-{{ entity.fields.get('lvl') }}  <-- zasto ovo ne radi :()
-xxx
-{# {{  (entity.fields.get('ID')) }} #}
-{% for field in entity.fields %}
-
-{{ field.property }} /  
-{{ field.formattedValue }}  /   
-{{ field.label|raw }}<br/>
-
-{% endfor %}
 ```
