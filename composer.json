@@ -21,7 +21,7 @@
         "symfony/dependency-injection": "*",
         "symfony/config": "*",
         "symfony/http-kernel": "*",
-        "easycorp/easyadmin-bundle": "^2.0|^3.0|^4.0"
+        "easycorp/easyadmin-bundle": "^3.0|^4.0"
     },
     "autoload": {
         "psr-4": {

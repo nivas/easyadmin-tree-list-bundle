@@ -129,13 +129,13 @@
                     {% set previous_item = null %}
                     {% set root_item = null %}
                     {% set parent_id = null %}
-<hr>
+{# <hr>
 levelShift: {{ levelShift }}
 tree_parents: {{ dump(tree_parents) }}
 previous_item: {{ previous_item }}
 root_item: {{ root_item }}
 parent_id: {{ parent_id }}
-<hr>
+<hr> #}
                 {% endif %}
 
 
@@ -170,15 +170,13 @@ parent_id: {{ parent_id }}
 
                     {# TREE MANAGMENT #}
                     {% if tree is defined and tree %}
-                    {# {% if _entity_config.tree is defined and _entity_config.tree %} #}
-
 
 {% set current_root_id = entity.fields.getByProperty('root').value.id %}
 {% set current_lft = entity.fields.getByProperty('lft').value %}
 {% set current_lvl = entity.fields.getByProperty('lvl').value %}
 
-current_root_id: {{ current_root_id }}<br/>
-current_lft: {{ current_lft }}<br/>
+{# current_root_id: {{ current_root_id }}<br/>
+current_lft: {{ current_lft }}<br/> #}
 
                         {% if root_item != current_root_id %}
                             {% set previous_item = null %}
@@ -187,14 +185,14 @@ current_lft: {{ current_lft }}<br/>
                             {% set tree_parents = [] %}
                         {% endif %}
                         {% if previous_item %}
-PREVIOUS
+
 {% set previous_id = previous_item.fields.getByProperty('id').value %}
 {% set previous_root_id = previous_item.fields.getByProperty('root').value.id %}
 {% set previous_rgt = previous_item.fields.getByProperty('rgt').value %}
 {% set previous_lft = previous_item.fields.getByProperty('lft').value %}
 
-previous_rgt: {{ previous_rgt }}<br/>
-previous_lft: {{ previous_lft }}<br/>
+{# previous_rgt: {{ previous_rgt }}<br/>
+previous_lft: {{ previous_lft }}<br/> #}
 
                             {% if previous_rgt > current_lft %}{# we go up #}
                                 {% set parent_id = previous_id %}
@@ -224,7 +222,7 @@ previous_lft: {{ previous_lft }}<br/>
 
 
 {% set previous_item = entity %}
-prev: {{ previous_item }}
+{# prev: {{ previous_item }} #}
 
 
 
