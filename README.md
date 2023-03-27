@@ -116,30 +116,6 @@ class TermCrudController extends AbstractCrudController
 
 
 
-### local development
-
-For local development if bundle is located in `~/dev/my_easyadmin_tree_bundle/nivas/easyadmin-tree-list-bundle`, manually add to your `composer.json` repo:
-
-```
-{
-    "type": "project",
-    "license": "proprietary",
-    "repositories":[
-		{
-			"type": "path", 
-			"url":  "~/dev/my_easyadmin_tree_bundle/nivas/easyadmin-tree-list-bundle"
-		}
-    ],    
-...    
-    "prefer-stable": true,
-    "minimum-stability": "dev",
-    "require": {
-        "nivas/easyadmin-tree-list-bundle": "dev-main",
-        ...
-```
-
-Then run `composer install`.
-
 ## Easyadmin v2 to v3 migration 
 
 In EasyAdmin v2 you could access value of entity property by typing eg. `entity.id`. Not anymore. this was replaced by EasyAdmin's EntityDTO.
