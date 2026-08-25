@@ -3,7 +3,7 @@
 namespace Nivas\Bundle\EasyAdminTreeListBundle\DependencyInjection;
 
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\HttpKernel\DependencyInjection\Extension;
+use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
@@ -18,7 +18,7 @@ class EasyAdminTreeListExtension extends Extension implements PrependExtensionIn
      * @param ContainerBuilder $container
      * @return void
      */
-    public function load(array $configs, ContainerBuilder $container)
+    public function load(array $configs, ContainerBuilder $container): void
     {
         // $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../../config'));
         // $loader->load('services.yaml');
@@ -27,7 +27,7 @@ class EasyAdminTreeListExtension extends Extension implements PrependExtensionIn
     /**
      * injecting twig template paths so we can override bundle from bundle
      */
-    public function prepend(ContainerBuilder $container)
+    public function prepend(ContainerBuilder $container): void
     {
         // recommended to use FileLocator here 
         $thirdPartyBundlesViewFileLocator = (new FileLocator(__DIR__ . '/../../templates/bundles'));

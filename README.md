@@ -8,6 +8,7 @@ EasyAdmin 4.x / Symfony 6.4+ & 7.x compatible bundle which overrides the default
 
 | Bundle version | EasyAdmin | Symfony | PHP |
 |---|---|---|---|
+| `v3.x` | 4.x | 6.4+ / 7.x | >= 8.1 |
 | `v2.x` | 4.x | 6.4+ / 7.x | >= 8.1 |
 | `v1.0.0` | 3.x | 5.x | >= 7.2 |
 
@@ -126,6 +127,63 @@ class TermCrudController extends AbstractCrudController
 
 }
 ```
+
+## Server-side lazy loading (v3)
+
+By default the whole tree is rendered in one page, which gets slow and memory-hungry
+for large trees (EasyAdmin's per-row rendering cost dominates — a ~700-row tree costs
+hundreds of MB with the Symfony profiler enabled). v3 adds an opt-in lazy mode:
+
+- the initial page renders **only root nodes**; rows whose subtree is non-empty
+  (nested set: `rgt - lft > 1`) get an expander arrow via `data-branch="true"`,
+- expanding an unloaded node fetches the same index URL with `?treeParent=<id>`
+  and inserts the returned rows into the tree (`treetable('loadBranch')`),
+- searching still spans the whole tree (matched rows whose parents are missing
+  from the result set are shown top-level, as before).
+
+Enable it by (1) setting the `tree_lazy` response parameter and (2) filtering your
+index query builder — the template does the rest:
+
+```php
+    public function configureResponseParameters(KeyValueStore $responseParameters): KeyValueStore
+    {
+        $responseParameters->set('tree', true);
+        $responseParameters->set('tree_lazy', true); // NEW in v3
+        return $responseParameters;
+    }
+
+    public function createIndexQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder
+    {
+        $qb = $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, $filters);
+        $qb->resetDQLPart('orderBy');
+        $root = $qb->getRootAlias();
+
+        // lazy tree: initially only roots; expanding a node fetches ?treeParent=<id>.
+        // Search keeps querying the whole tree.
+        $treeParent = $this->requestStack->getCurrentRequest()?->query->getInt('treeParent') ?: null;
+        if ($treeParent !== null) {
+            $qb->andWhere($root.'.parent = :treeParent')->setParameter('treeParent', $treeParent);
+        } elseif (!$searchDto->getQuery()) {
+            $qb->andWhere($root.'.lvl = 0');
+        }
+
+        $qb->addOrderBy($root.'.root', 'ASC');
+        $qb->addOrderBy($root.'.lft', 'ASC');
+        return $qb;
+    }
+```
+
+(`$this->requestStack` is a constructor-injected `Symfony\Component\HttpFoundation\RequestStack`.)
+
+Make sure the page size covers your widest node (`$crud->setPaginatorPageSize(...)`) —
+each `treeParent` fetch returns ALL children of that node on one page.
+
+## v2 to v3 migration
+
+- Non-lazy setups: no changes needed — without `tree_lazy` the template behaves
+  exactly like v2 (the whole tree renders in one page, expanders work client-side).
+- The bundle's DI extension no longer triggers the Symfony 7.1+ deprecations
+  (internal `HttpKernel\DependencyInjection\Extension` and untyped `prepend()`).
 
 ## v1 to v2 migration
 

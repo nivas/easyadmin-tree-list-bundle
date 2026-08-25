@@ -3,7 +3,15 @@
    Rows get data-root-id / data-parent-id straight from the entity's tree
    associations (EA4's entity_row_attributes block hook makes the old
    lft/rgt-based parent reconstruction unnecessary), and jquery.treetable
-   renders the expandable tree. #}
+   renders the expandable tree.
+
+   v3.0.0: opt-in SERVER-SIDE LAZY LOADING — set 'tree_lazy' => true next to
+   'tree' => true AND filter your createIndexQueryBuilder() accordingly
+   (roots only when no search, children of ?treeParent=<id> — see README):
+   - rows with descendants carry data-branch="true" (nested set: rgt - lft > 1),
+     so treetable shows the expander without the children being present,
+   - expanding an unloaded node fetches the same index URL with ?treeParent=<id>
+     and inserts the returned rows via treetable('loadBranch'). #}
 {% extends '@!EasyAdmin/crud/index.html.twig' %}
 
 {% block entity_row_attributes %}
@@ -11,6 +19,7 @@
         {%- set _instance = entity.instance -%}
         {%- if _instance.root is defined and _instance.root -%} data-root-id="{{ _instance.root.id }}"{%- endif -%}
         {%- if _instance.parent is defined and _instance.parent -%} data-parent-id="{{ _instance.parent.id }}"{%- endif -%}
+        {%- if _instance.rgt is defined and _instance.lft is defined and (_instance.rgt - _instance.lft) > 1 -%} data-branch="true"{%- endif -%}
     {%- endif -%}
 {% endblock %}
 
@@ -19,6 +28,8 @@
     {% if tree is defined and tree %}
     <script type="text/javascript">
         $(document).ready(function () {
+            var lazy = {{ (tree_lazy is defined and tree_lazy) ? 'true' : 'false' }};
+
             // filtered/searched subsets may not contain a row's parent —
             // treetable would hide such rows, so detach the missing parents first
             document.querySelectorAll('#main table tbody tr[data-parent-id]').forEach(function (tr) {
@@ -27,7 +38,31 @@
                     tr.removeAttribute('data-parent-id');
                 }
             });
-            $('#main table').treetable({ expandable: true, nodeIdAttr: 'id', parentIdAttr: 'parentId', indent: 19 });
+
+            var $table = $('#main table');
+            $table.treetable({
+                expandable: true,
+                nodeIdAttr: 'id',
+                parentIdAttr: 'parentId',
+                branchAttr: 'branch',
+                indent: 19,
+                onNodeExpand: function () {
+                    if (!lazy) { return; }
+                    var node = this;
+                    if (node.children.length > 0) { return; } // already loaded (or rendered server-side)
+                    var url = new URL(window.location.href);
+                    url.searchParams.set('treeParent', node.id);
+                    fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (r) { return r.text(); })
+                        .then(function (html) {
+                            var doc = new DOMParser().parseFromString(html, 'text/html');
+                            var rows = doc.querySelectorAll('#main table tbody tr[data-id]');
+                            if (rows.length === 0) { return; }
+                            var htmlRows = Array.prototype.map.call(rows, function (r) { return r.outerHTML; }).join('');
+                            $table.treetable('loadBranch', node, htmlRows);
+                        });
+                }
+            });
         });
     </script>
     {% endif %}
